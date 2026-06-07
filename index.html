@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartReader — Instant Word & Sentence Explainer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+:root{
+  --bg:#fafaf8;
+  --bg2:#f4f3ef;
+  --surface:#ffffff;
+  --surface2:#f0efe9;
+  --border:#e2e0d8;
+  --border2:#d0cec4;
+  --accent:#1a1a2e;
+  --accent2:#c8a96e;
+  --accent3:#4a7c6f;
+  --text:#1c1b18;
+  --muted:#7a7870;
+  --muted2:#b0ae a6;
+  --red:#c0392b;
+  --green:#2d6a4f;
+  --radius:12px;
+  --shadow:0 4px 24px rgba(0,0,0,.08);
+  --shadow2:0 12px 48px rgba(0,0,0,.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ══ INTRO SPLASH ══ */
+#intro-splash{
+  position:fixed;inset:0;z-index:9999;
+  background:#0d0d1a;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  perspective:1000px;
+  transition:opacity .8s ease, visibility .8s ease;
+}
+#intro-splash.hidden{opacity:0;visibility:hidden;pointer-events:none}
+
+.splash-scene{
+  transform-style:preserve-3d;
+  animation:sceneFloat 6s ease-in-out infinite;
+}
+@keyframes sceneFloat{
+  0%,100%{transform:rotateX(0deg) rotateY(0deg)}
+  25%{transform:rotateX(3deg) rotateY(-3deg)}
+  75%{transform:rotateX(-2deg) rotateY(3deg)}
+}
+
+.splash-badge{
+  font-family:'Outfit',sans-serif;
+  font-size:.75rem;font-weight:600;
+  letter-spacing:.25em;text-transform:uppercase;
+  color:#c8a96e;
+  margin-bottom:28px;
+  opacity:0;animation:fadeSlideUp .6s .3s ease forwards;
+}
+
+.splash-title-wrap{
+  position:relative;
+  display:flex;align-items:center;gap:16px;
+  margin-bottom:8px;
+}
+.splash-icon{
+  font-size:3.5rem;
+  opacity:0;
+  transform:translateZ(60px) scale(.5) rotateY(-90deg);
+  animation:iconReveal .8s .5s cubic-bezier(.16,1,.3,1) forwards;
+  filter:drop-shadow(0 0 30px rgba(200,169,110,.5));
+}
+@keyframes iconReveal{
+  to{opacity:1;transform:translateZ(60px) scale(1) rotateY(0deg)}
+}
+
+.splash-title{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(4rem,10vw,7.5rem);
+  font-weight:700;
+  line-height:1;
+  letter-spacing:-3px;
+  color:transparent;
+  background:linear-gradient(135deg,#ffffff 0%,#c8a96e 40%,#ffffff 70%,#a8844e 100%);
+  -webkit-background-clip:text;background-clip:text;
+  background-size:200% 200%;
+  opacity:0;
+  transform:translateZ(40px) rotateX(45deg) scaleY(.3);
+  animation:titleReveal .9s .7s cubic-bezier(.16,1,.3,1) forwards, shimmer 3s 1.6s linear infinite;
+}
+@keyframes titleReveal{
+  to{opacity:1;transform:translateZ(40px) rotateX(0deg) scaleY(1)}
+}
+@keyframes shimmer{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+
+.splash-tagline{
+  font-family:'Outfit',sans-serif;
+  font-size:clamp(.95rem,2vw,1.2rem);
+  font-weight:300;
+  color:rgba(255,255,255,.6);
+  letter-spacing:.04em;
+  text-align:center;
+  margin-top:20px;
+  opacity:0;
+  animation:fadeSlideUp .7s 1.3s ease forwards;
+}
+.splash-tagline em{
+  color:#c8a96e;
+  font-style:italic;
+  font-family:'Cormorant Garamond',serif;
+  font-size:1.15em;
+}
+
+.splash-divider{
+  width:80px;height:1px;
+  background:linear-gradient(90deg,transparent,#c8a96e,transparent);
+  margin:24px auto 0;
+  opacity:0;
+  animation:fadeSlideUp .6s 1.6s ease forwards;
+}
+
+.splash-loading{
+  display:flex;gap:8px;margin-top:28px;
+  opacity:0;animation:fadeSlideUp .6s 1.8s ease forwards;
+}
+.splash-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:#c8a96e;
+  animation:splashPulse 1.4s ease-in-out infinite;
+}
+.splash-dot:nth-child(2){animation-delay:.2s}
+.splash-dot:nth-child(3){animation-delay:.4s}
+@keyframes splashPulse{
+  0%,80%,100%{transform:scale(.5);opacity:.3}
+  40%{transform:scale(1);opacity:1}
+}
+
+.splash-particles{
+  position:absolute;inset:0;overflow:hidden;pointer-events:none;
+}
+.particle{
+  position:absolute;
+  width:2px;height:2px;border-radius:50%;
+  background:#c8a96e;
+  opacity:0;
+  animation:particleFloat linear infinite;
+}
+
+@keyframes particleFloat{
+  0%{opacity:0;transform:translateY(100vh) scale(0)}
+  10%{opacity:.6}
+  90%{opacity:.3}
+  100%{opacity:0;transform:translateY(-20vh) scale(1)}
+}
+
+@keyframes fadeSlideUp{
+  from{opacity:0;transform:translateY(20px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* ══ NAV ══ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:900;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 48px;height:64px;
+  background:rgba(250,250,248,.92);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 1px 0 rgba(0,0,0,.04);
+}
+.nav-logo{
+  font-family:'Cormorant Garamond',serif;
+  font-size:1.6rem;font-weight:700;
+  color:var(--text);cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  letter-spacing:-.5px;
+}
+.nav-logo span{color:var(--accent2)}
+.nav-links{display:flex;gap:2px}
+.nav-link{
+  background:none;border:none;
+  padding:8px 18px;border-radius:8px;
+  font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:500;
+  color:var(--muted);cursor:pointer;transition:all .2s;
+}
+.nav-link:hover{color:var(--text);background:var(--surface2)}
+.nav-link.active{color:var(--text);background:var(--surface2);font-weight:600}
+
+/* ══ PAGES ══ */
+.page{display:none;min-height:100vh;padding-top:64px}
+.page.active{display:block}
+#page-home.active{display:flex;flex-direction:column}
+#page-app.active{display:flex;flex-direction:column;height:100vh}
+
+/* ══ HOME ══ */
+.hero{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;
+  padding:100px 40px 80px;
+  min-height:calc(100vh - 64px);
+  position:relative;
+  overflow:hidden;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 20%,rgba(200,169,110,.1) 0%,transparent 60%),
+    radial-gradient(ellipse 40% 40% at 80% 80%,rgba(74,124,111,.08) 0%,transparent 60%);
+  pointer-events:none;
+}
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:60px 60px;
+  opacity:.4;pointer-events:none;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  border-radius:100px;padding:7px 20px;
+  font-size:.78rem;font-weight:600;
+  color:var(--accent2);
+  margin-bottom:36px;
+  box-shadow:var(--shadow);
+  animation:fadeUp .6s ease both;
+  letter-spacing:.04em;text-transform:uppercase;
+}
+.hero h1{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(3.5rem,7vw,6.5rem);
+  font-weight:700;line-height:1.05;
+  letter-spacing:-3px;
+  margin-bottom:10px;
+  animation:fadeUp .6s .1s ease both;
+  color:var(--text);
+}
+.hero h1 em{
+  color:var(--accent2);font-style:italic;
+}
+.hero-sub{
+  font-family:'Cormorant Garamond',serif;
+  font-size:clamp(1.2rem,2.5vw,1.6rem);
+  font-weight:300;font-style:italic;
+  color:var(--muted);
+  margin-bottom:28px;
+  animation:fadeUp .6s .15s ease both;
+  letter-spacing:.01em;
+}
+.hero p{
+  max-width:520px;font-size:1rem;
+  color:var(--muted);line-height:1.75;
+  margin-bottom:44px;
+  animation:fadeUp .6s .2s ease both;
+  font-weight:400;
+}
+.hero-btns{
+  display:flex;gap:14px;flex-wrap:wrap;
+  justify-content:center;
+  animation:fadeUp .6s .3s ease both;
+}
+.btn-primary{
+  background:var(--text);color:#fff;
+  border:none;border-radius:10px;
+  padding:15px 36px;
+  font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:600;
+  cursor:pointer;transition:all .25s;
+  box-shadow:0 4px 16px rgba(0,0,0,.2);
+  letter-spacing:.01em;
+}
+.btn-primary:hover{background:#2d2d40;transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.btn-secondary{
+  background:var(--surface);color:var(--text);
+  border:1.5px solid var(--border2);
+  border-radius:10px;padding:15px 36px;
+  font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:500;
+  cursor:pointer;transition:all .25s;
+}
+.btn-secondary:hover{border-color:var(--accent2);color:var(--accent2);transform:translateY(-2px)}
+
+.features{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:20px;padding:60px 48px 80px;
+  max-width:1200px;margin:0 auto;width:100%;
+}
+.feature-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;padding:32px 28px;
+  transition:all .3s;
+  box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.feature-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent3));
+  opacity:0;transition:opacity .3s;
+}
+.feature-card:hover{border-color:var(--border2);transform:translateY(-4px);box-shadow:var(--shadow2)}
+.feature-card:hover::before{opacity:1}
+.feature-icon{font-size:2rem;margin-bottom:18px}
+.feature-card h3{font-size:1rem;font-weight:600;margin-bottom:8px;color:var(--text)}
+.feature-card p{font-size:.88rem;color:var(--muted);line-height:1.65}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══ APP ══ */
+#lang-modal{
+  position:fixed;inset:0;z-index:1000;
+  background:rgba(250,250,248,.96);
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(20px);
+}
+#lang-modal.show{display:flex}
+.lang-box{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:24px;padding:52px 44px;
+  max-width:540px;width:90%;
+  box-shadow:var(--shadow2);
+  text-align:center;
+  animation:slideUp .4s cubic-bezier(.16,1,.3,1);
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.lang-box .logo-line{
+  font-family:'Cormorant Garamond',serif;
+  font-size:2.4rem;font-weight:700;
+  color:var(--text);margin-bottom:6px;
+  letter-spacing:-1px;
+}
+.lang-box .logo-line span{color:var(--accent2)}
+.lang-box .tagline{color:var(--muted);font-size:.9rem;margin-bottom:36px;line-height:1.5}
+.lang-box h2{font-size:1rem;font-weight:500;margin-bottom:20px;color:var(--text)}
+.lang-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:28px}
+.lang-btn{
+  background:var(--bg2);border:1.5px solid var(--border);
+  border-radius:10px;padding:14px 8px;cursor:pointer;
+  color:var(--text);font-family:'Outfit',sans-serif;
+  font-size:.88rem;font-weight:500;transition:all .2s;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.lang-btn .flag{font-size:1.4rem}
+.lang-btn:hover,.lang-btn.selected{border-color:var(--accent2);background:rgba(200,169,110,.08);color:var(--accent2)}
+.lang-confirm{
+  background:var(--text);color:#fff;
+  border:none;border-radius:10px;
+  padding:15px 40px;font-size:.95rem;font-weight:600;
+  cursor:pointer;width:100%;
+  font-family:'Outfit',sans-serif;transition:all .2s;
+  opacity:.4;pointer-events:none;
+}
+.lang-confirm.active{opacity:1;pointer-events:all}
+.lang-confirm.active:hover{background:#2d2d40}
+
+.app-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 24px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  box-shadow:0 1px 0 rgba(0,0,0,.04);
+}
+.app-logo{
+  font-family:'Cormorant Garamond',serif;
+  font-size:1.4rem;font-weight:700;
+  color:var(--text);letter-spacing:-.5px;
+}
+.app-logo span{color:var(--accent2)}
+.app-lang-btn,.back-btn{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:7px 16px;
+  font-size:.84rem;color:var(--muted);
+  cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;
+  font-weight:500;
+}
+.app-lang-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+.back-btn:hover{border-color:var(--accent3);color:var(--accent3)}
+
+.main-area{display:flex;flex:1;overflow:hidden}
+.left-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px;gap:12px}
+.upload-zone{
+  border:2px dashed var(--border2);border-radius:var(--radius);
+  padding:22px;text-align:center;cursor:pointer;
+  transition:all .25s;background:var(--surface);flex-shrink:0;
+}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent2);background:rgba(200,169,110,.04)}
+.upload-zone .upload-icon{font-size:1.8rem;margin-bottom:6px}
+.upload-zone p{color:var(--muted);font-size:.88rem}
+.upload-zone strong{color:var(--accent2)}
+.upload-zone input{display:none}
+
+.toolbar{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
+.toolbar-btn{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:7px 14px;
+  color:var(--muted);font-size:.82rem;
+  cursor:pointer;font-family:'Outfit',sans-serif;
+  transition:all .2s;font-weight:500;
+}
+.toolbar-btn:hover{border-color:var(--border2);color:var(--text)}
+.toolbar-btn.active{border-color:var(--accent2);color:var(--accent2);background:rgba(200,169,110,.07)}
+.mode-label{
+  margin-left:auto;font-size:.78rem;color:var(--muted);
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:4px 14px;
+}
+
+#doc-container{
+  flex:1;overflow-y:auto;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:28px 32px;
+  line-height:1.9;font-size:1rem;color:var(--text);
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.04);
+}
+#doc-container .placeholder{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100%;gap:12px;
+  color:var(--muted);text-align:center;
+}
+#doc-container .placeholder .big{font-size:3rem}
+.doc-word{
+  cursor:pointer;border-radius:3px;
+  transition:all .15s;padding:1px 2px;
+}
+.doc-word:hover{background:rgba(200,169,110,.2);color:var(--accent2)}
+.doc-word.highlighted{background:rgba(200,169,110,.25);color:var(--accent2)}
+.doc-sentence{cursor:pointer;border-radius:4px;padding:1px 2px;transition:all .15s}
+.doc-sentence:hover{background:rgba(74,124,111,.12)}
+.doc-sentence.highlighted{background:rgba(74,124,111,.15)}
+
+.right-panel{
+  width:320px;flex-shrink:0;
+  border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+  background:var(--surface);
+}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-tab{
+  flex:1;padding:13px 8px;text-align:center;
+  font-size:.82rem;font-weight:600;cursor:pointer;
+  color:var(--muted);border-bottom:2px solid transparent;
+  transition:all .2s;background:none;
+  border-top:none;border-left:none;border-right:none;
+  font-family:'Outfit',sans-serif;
+}
+.panel-tab.active{color:var(--text);border-bottom-color:var(--accent2)}
+.panel-content{flex:1;overflow-y:auto;padding:18px}
+
+.result-card{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.selected-text-box{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:12px 14px;margin-bottom:14px;
+  font-family:'DM Mono',monospace;font-size:.88rem;
+  color:var(--accent2);word-break:break-word;
+}
+.info-row{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 0;border-bottom:1px solid var(--border);
+}
+.info-row:last-child{border-bottom:none}
+.info-label{
+  font-size:.7rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.08em;
+  min-width:80px;padding-top:2px;
+}
+.info-value{font-size:.9rem;color:var(--text);flex:1;line-height:1.55}
+.info-value.pos-badge{
+  display:inline-block;
+  background:rgba(74,124,111,.1);color:var(--accent3);
+  border:1px solid rgba(74,124,111,.25);
+  border-radius:20px;padding:2px 12px;
+  font-size:.76rem;font-weight:600;
+}
+.info-value.rtl-text{
+  font-size:1.1rem;direction:rtl;text-align:right;
+  color:var(--accent2);font-family:serif;
+}
+.loading-dots{display:flex;gap:6px;padding:20px 0;justify-content:center}
+.loading-dots span{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent2);opacity:.3;
+  animation:dotPulse 1.2s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2){animation-delay:.2s}
+.loading-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotPulse{
+  0%,80%,100%{opacity:.3;transform:scale(.8)}
+  40%{opacity:1;transform:scale(1.1)}
+}
+.empty-state{text-align:center;padding:40px 16px;color:var(--muted)}
+.empty-state .emoji{font-size:2.5rem;margin-bottom:12px}
+.empty-state p{font-size:.87rem;line-height:1.65}
+
+.how-section{margin-bottom:22px}
+.how-section h3{
+  font-size:.75rem;font-weight:700;color:var(--accent2);
+  text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;
+}
+.step{display:flex;gap:10px;margin-bottom:10px;align-items:flex-start}
+.step-num{
+  background:var(--text);color:#fff;
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.68rem;font-weight:700;flex-shrink:0;margin-top:2px;
+}
+.step p{font-size:.85rem;color:var(--muted);line-height:1.55}
+.step p strong{color:var(--text)}
+.tip-box{
+  background:rgba(200,169,110,.07);
+  border:1px solid rgba(200,169,110,.2);
+  border-radius:10px;padding:12px;
+  font-size:.82rem;color:var(--muted);line-height:1.6;
+}
+.tip-box strong{color:var(--accent2)}
+
+/* ══ ABOUT ══ */
+#page-about .page-inner{max-width:940px;margin:0 auto;padding:70px 48px}
+.about-hero{text-align:center;margin-bottom:64px}
+.about-hero h1{
+  font-family:'Cormorant Garamond',serif;
+  font-size:3.2rem;font-weight:700;
+  letter-spacing:-2px;margin-bottom:16px;
+  color:var(--text);
+}
+.about-hero h1 em{color:var(--accent2);font-style:italic}
+.about-hero p{color:var(--muted);font-size:1.05rem;max-width:520px;margin:0 auto;line-height:1.7}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:52px}
+.stat-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:32px;text-align:center;
+  box-shadow:var(--shadow);
+}
+.stat-num{
+  font-family:'Cormorant Garamond',serif;
+  font-size:3rem;font-weight:700;
+  color:var(--accent2);margin-bottom:6px;
+}
+.stat-box p{color:var(--muted);font-size:.85rem}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:52px}
+.about-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:30px;box-shadow:var(--shadow);
+}
+.about-card h3{font-size:1rem;font-weight:700;margin-bottom:10px;color:var(--text)}
+.about-card p{font-size:.88rem;color:var(--muted);line-height:1.7}
+.team-section{text-align:center;margin-bottom:60px}
+.team-section h2{
+  font-family:'Cormorant Garamond',serif;
+  font-size:2.2rem;font-weight:700;margin-bottom:8px;
+  letter-spacing:-1px;
+}
+.team-section>p{color:var(--muted);margin-bottom:36px}
+.team-card{
+  display:inline-flex;flex-direction:column;align-items:center;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:40px 52px;max-width:360px;
+  box-shadow:var(--shadow2);
+}
+.team-avatar{
+  width:90px;height:90px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent2),var(--accent3));
+  display:flex;align-items:center;justify-content:center;
+  font-size:2.2rem;margin-bottom:18px;
+  border:3px solid rgba(200,169,110,.3);
+}
+.team-card h3{font-size:1.1rem;font-weight:700;margin-bottom:4px}
+.team-card .role{color:var(--accent2);font-size:.85rem;font-weight:600;margin-bottom:10px}
+.team-card p{color:var(--muted);font-size:.85rem;line-height:1.65;text-align:center}
+
+/* ══ CONTACT ══ */
+#page-contact .page-inner{max-width:880px;margin:0 auto;padding:70px 48px}
+.contact-hero{text-align:center;margin-bottom:52px}
+.contact-hero h1{
+  font-family:'Cormorant Garamond',serif;
+  font-size:3rem;font-weight:700;letter-spacing:-2px;margin-bottom:14px;
+}
+.contact-hero h1 em{color:var(--accent2);font-style:italic}
+.contact-hero p{color:var(--muted);font-size:1rem;line-height:1.7}
+.contact-grid{display:grid;grid-template-columns:1fr 1.6fr;gap:28px}
+.contact-info{display:flex;flex-direction:column;gap:14px}
+.contact-info-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:22px;box-shadow:var(--shadow);
+}
+.contact-info-card .ci-icon{font-size:1.4rem;margin-bottom:8px}
+.contact-info-card h4{
+  font-size:.75rem;font-weight:700;color:var(--accent2);
+  margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;
+}
+.contact-info-card p{font-size:.88rem;color:var(--muted)}
+.contact-form{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:36px;box-shadow:var(--shadow);
+}
+.contact-form h3{font-size:1.1rem;font-weight:700;margin-bottom:24px;color:var(--text)}
+.form-row{margin-bottom:16px}
+.form-row label{
+  display:block;font-size:.75rem;font-weight:700;
+  color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:7px;
+}
+.form-row input,.form-row textarea,.form-row select{
+  width:100%;background:var(--bg2);
+  border:1.5px solid var(--border);border-radius:8px;
+  padding:12px 14px;font-family:'Outfit',sans-serif;
+  font-size:.92rem;color:var(--text);outline:none;
+  transition:border-color .2s;resize:none;
+}
+.form-row input:focus,.form-row textarea:focus,.form-row select:focus{border-color:var(--accent2)}
+.form-row textarea{height:120px}
+.form-row select option{background:var(--surface)}
+.form-submit{
+  background:var(--text);color:#fff;border:none;
+  border-radius:10px;padding:15px 32px;
+  font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:600;
+  cursor:pointer;width:100%;transition:all .2s;margin-top:4px;
+}
+.form-submit:hover{background:#2d2d40;transform:translateY(-1px)}
+.form-submit:disabled{opacity:.5;cursor:not-allowed}
+.form-msg{
+  display:none;border-radius:10px;padding:14px;
+  font-size:.88rem;margin-top:12px;text-align:center;
+}
+.form-msg.success{display:block;background:rgba(45,106,79,.08);border:1px solid rgba(45,106,79,.25);color:var(--green)}
+.form-msg.error{display:block;background:rgba(192,57,43,.06);border:1px solid rgba(192,57,43,.2);color:var(--red)}
+
+/* ══ TOAST ══ */
+#toast{
+  position:fixed;bottom:24px;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--text);color:#fff;
+  border-radius:10px;padding:10px 24px;
+  font-size:.87rem;font-weight:500;
+  transition:transform .3s cubic-bezier(.16,1,.3,1);
+  z-index:9999;pointer-events:none;
+  box-shadow:0 8px 24px rgba(0,0,0,.2);
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ══ FOOTER ══ */
+footer{
+  background:var(--surface);border-top:1px solid var(--border);
+  text-align:center;padding:28px 40px;
+  font-size:.84rem;color:var(--muted);margin-top:auto;
+}
+footer strong{color:var(--accent2)}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:768px){
+  nav{padding:0 20px}
+  .nav-link{padding:7px 10px;font-size:.8rem}
+  .about-grid,.contact-grid{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .right-panel{width:100%;border-left:none;border-top:1px solid var(--border);max-height:45vh}
+  .main-area{flex-direction:column}
+  .lang-grid{grid-template-columns:repeat(2,1fr)}
+  .hero h1{font-size:3rem;letter-spacing:-2px}
+  #page-about .page-inner,#page-contact .page-inner{padding:40px 20px}
+  .features{padding:40px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ INTRO SPLASH ══ -->
+<div id="intro-splash">
+  <div class="splash-particles" id="particles"></div>
+  <div class="splash-scene">
+    <div class="splash-badge">✦ AI-Powered Reading Assistant</div>
+    <div class="splash-title-wrap">
+      <span class="splash-icon">📖</span>
+      <h1 class="splash-title">SmartReader</h1>
+    </div>
+    <div class="splash-tagline">
+      Where every word becomes a <em>window to understanding</em>
+    </div>
+    <div class="splash-divider"></div>
+    <div class="splash-loading">
+      <div class="splash-dot"></div>
+      <div class="splash-dot"></div>
+      <div class="splash-dot"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <div class="nav-logo" onclick="showPage('home')">📖 Smart<span>Reader</span></div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showPage('home')">Home</button>
+    <button class="nav-link" onclick="showPage('app')">App</button>
+    <button class="nav-link" onclick="showPage('about')">About</button>
+    <button class="nav-link" onclick="showPage('contact')">Contact</button>
+  </div>
+</nav>
+
+<!-- ══ HOME ══ -->
+<div class="page" id="page-home">
+  <div class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-badge">✨ Powered by AI · Free to Use</div>
+    <h1>Read Smarter,<br/><em>Understand Faster</em></h1>
+    <div class="hero-sub">Where every word becomes a window to understanding</div>
+    <p>Upload any document and tap any word or sentence for instant meanings, grammar breakdowns, and translations — no more Googling every word.</p>
+    <div class="hero-btns">
+      <button class="btn-primary" onclick="showPage('app')">🚀 Open SmartReader</button>
+      <button class="btn-secondary" onclick="showPage('about')">Learn More →</button>
+    </div>
+  </div>
+  <div class="features">
+    <div class="feature-card"><div class="feature-icon">🔤</div><h3>Word Lookup</h3><p>Tap any word to instantly see its dictionary meaning, part of speech, and example sentence.</p></div>
+    <div class="feature-card"><div class="feature-icon">📝</div><h3>Sentence Analysis</h3><p>Understand full sentences — grammar structure, tense, and plain English explanation.</p></div>
+    <div class="feature-card"><div class="feature-icon">🌐</div><h3>9 Languages</h3><p>Translations in Urdu, Arabic, Hindi, French, German, Spanish, Turkish, Chinese, or Russian.</p></div>
+    <div class="feature-card"><div class="feature-icon">📄</div><h3>Any Document</h3><p>Works with PDF, TXT, and DOCX files. Or just paste any text directly into the reader.</p></div>
+  </div>
+  <footer>Made with ❤️ by <strong>Muhaiman Ikram</strong> — SmartReader &copy; 2026</footer>
+</div>
+
+<!-- ══ APP ══ -->
+<div class="page" id="page-app">
+  <div id="lang-modal">
+    <div class="lang-box">
+      <div class="logo-line">📖 Smart<span>Reader</span></div>
+      <div class="tagline">Tap any word or sentence — get instant meaning, grammar & translation</div>
+      <h2>Choose your preferred language for meanings</h2>
+      <div class="lang-grid" id="lang-grid">
+        <button class="lang-btn" data-code="ur" data-name="Urdu"><span class="flag">🇵🇰</span>Urdu</button>
+        <button class="lang-btn" data-code="ar" data-name="Arabic"><span class="flag">🇸🇦</span>Arabic</button>
+        <button class="lang-btn" data-code="hi" data-name="Hindi"><span class="flag">🇮🇳</span>Hindi</button>
+        <button class="lang-btn" data-code="fr" data-name="French"><span class="flag">🇫🇷</span>French</button>
+        <button class="lang-btn" data-code="de" data-name="German"><span class="flag">🇩🇪</span>German</button>
+        <button class="lang-btn" data-code="es" data-name="Spanish"><span class="flag">🇪🇸</span>Spanish</button>
+        <button class="lang-btn" data-code="tr" data-name="Turkish"><span class="flag">🇹🇷</span>Turkish</button>
+        <button class="lang-btn" data-code="zh" data-name="Chinese"><span class="flag">🇨🇳</span>Chinese</button>
+        <button class="lang-btn" data-code="ru" data-name="Russian"><span class="flag">🇷🇺</span>Russian</button>
+      </div>
+      <button class="lang-confirm" id="lang-confirm">Select a language to continue →</button>
+    </div>
+  </div>
+  <div class="app-header">
+    <div class="app-logo">📖 Smart<span>Reader</span></div>
+    <div style="display:flex;gap:10px">
+      <button class="app-lang-btn" id="change-lang-btn">🌐 <span id="current-lang-label">—</span></button>
+      <button class="back-btn" onclick="showPage('home')">← Home</button>
+    </div>
+  </div>
+  <div class="main-area">
+    <div class="left-panel">
+      <div class="upload-zone" id="upload-zone">
+        <div class="upload-icon">📄</div>
+        <p><strong>Upload PDF, TXT, or DOCX</strong></p>
+        <p>Drag & drop, or <strong>click to browse</strong></p>
+        <input type="file" id="file-input" accept=".pdf,.txt,.docx,.doc"/>
+      </div>
+      <div class="toolbar">
+        <button class="toolbar-btn active" id="mode-word">🔤 Word Mode</button>
+        <button class="toolbar-btn" id="mode-sentence">📝 Sentence Mode</button>
+        <button class="toolbar-btn" id="paste-btn">📋 Paste Text</button>
+        <button class="toolbar-btn" id="clear-btn">🗑 Clear</button>
+        <span class="mode-label" id="mode-label">Tap a word to look it up</span>
+      </div>
+      <div id="doc-container">
+        <div class="placeholder"><div class="big">📂</div><p>Upload a document or paste text.<br/>Then tap any word or sentence.</p></div>
+      </div>
+    </div>
+    <div class="right-panel">
+      <div class="panel-tabs">
+        <button class="panel-tab active" data-tab="result">📘 Result</button>
+        <button class="panel-tab" data-tab="how">❓ How to Use</button>
+      </div>
+      <div class="panel-content" id="tab-result">
+        <div class="empty-state"><div class="emoji">👆</div><p>Upload a document, then<br/><strong>tap any word</strong> to see its meaning.</p></div>
+      </div>
+      <div class="panel-content" id="tab-how" style="display:none">
+        <div class="how-section">
+          <h3>🚀 Getting Started</h3>
+          <div class="step"><div class="step-num">1</div><p><strong>Select language</strong> — shown on first open, change anytime via 🌐.</p></div>
+          <div class="step"><div class="step-num">2</div><p><strong>Upload</strong> a PDF, TXT, or DOCX — or click Paste Text.</p></div>
+          <div class="step"><div class="step-num">3</div><p><strong>Tap any word</strong> in Word Mode for instant meaning + translation.</p></div>
+          <div class="step"><div class="step-num">4</div><p><strong>Sentence Mode</strong> — tap any sentence for full grammar analysis.</p></div>
+        </div>
+        <div class="tip-box"><strong>💡 Tip:</strong> Use Sentence Mode for idioms. Word Mode for quick vocab lookups.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ABOUT ══ -->
+<div class="page" id="page-about">
+  <div class="page-inner">
+    <div class="about-hero">
+      <h1>About <em>SmartReader</em></h1>
+      <p>Built for students, educators, and professionals who want to read documents deeply — not just skim them.</p>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-num">9+</div><p>Languages Supported</p></div>
+      <div class="stat-box"><div class="stat-num">3</div><p>Document Formats</p></div>
+      <div class="stat-box"><div class="stat-num">∞</div><p>Words You Can Learn</p></div>
+    </div>
+    <div class="about-grid">
+      <div class="about-card"><h3>🎯 Our Mission</h3><p>No one should waste time Googling every unknown word. SmartReader brings the dictionary, grammar guide, and translator directly into your reading — in one tap.</p></div>
+      <div class="about-card"><h3>💡 Why We Built This</h3><p>As an English educator, I saw students constantly interrupting their reading to look up words. SmartReader keeps them focused and learning naturally.</p></div>
+      <div class="about-card"><h3>📚 What It Does</h3><p>Upload any PDF, TXT, or DOCX. Tap any word for its meaning, part of speech, and translation. Switch to Sentence Mode for grammar analysis.</p></div>
+      <div class="about-card"><h3>🌍 Who It's For</h3><p>Students improving English, teachers preparing materials, professionals reading documents, and anyone learning through reading.</p></div>
+    </div>
+    <div class="team-section">
+      <h2>Meet the Creator</h2>
+      <p>The person behind SmartReader</p>
+      <div class="team-card">
+        <div class="team-avatar">👨‍🏫</div>
+        <h3>Muhaiman Ikram</h3>
+        <div class="role">English Educator & Linguistics Specialist</div>
+        <p>Content writer, English instructor, and published researcher from Dera Ismail Khan, Pakistan. Passionate about making language accessible to everyone.</p>
+      </div>
+    </div>
+  </div>
+  <footer>Made with ❤️ by <strong>Muhaiman Ikram</strong> — SmartReader &copy; 2026</footer>
+</div>
+
+<!-- ══ CONTACT ══ -->
+<div class="page" id="page-contact">
+  <div class="page-inner">
+    <div class="contact-hero">
+      <h1>Get in <em>Touch</em></h1>
+      <p>Have a question, feedback, or want to license SmartReader for your school or business?</p>
+    </div>
+    <div class="contact-grid">
+      <div class="contact-info">
+        <div class="contact-info-card"><div class="ci-icon">📧</div><h4>Email</h4><p>muhaimanikram@gmail.com</p></div>
+        <div class="contact-info-card"><div class="ci-icon">📍</div><h4>Location</h4><p>Dera Ismail Khan, Pakistan</p></div>
+        <div class="contact-info-card"><div class="ci-icon">📞</div><h4>Phone</h4><p>+92 311 9062919</p></div>
+        <div class="contact-info-card"><div class="ci-icon">⏰</div><h4>Response Time</h4><p>Usually within 24 hours</p></div>
+      </div>
+      <div class="contact-form">
+        <h3>📨 Send a Message</h3>
+        <div class="form-row"><label>Your Name</label><input type="text" id="cf-name" placeholder="e.g. Ahmed Khan"/></div>
+        <div class="form-row"><label>Email Address</label><input type="email" id="cf-email" placeholder="your@email.com"/></div>
+        <div class="form-row"><label>Subject</label>
+          <select id="cf-subject">
+            <option value="">Select a topic…</option>
+            <option>General Question</option>
+            <option>Bug Report</option>
+            <option>Business / Licensing</option>
+            <option>Feedback</option>
+            <option>Partnership</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Message</label><textarea id="cf-message" placeholder="Write your message here…"></textarea></div>
+        <button class="form-submit" id="form-submit-btn" onclick="submitContact()">📨 Send Message</button>
+        <div class="form-msg" id="form-msg"></div>
+      </div>
+    </div>
+  </div>
+  <footer>Made with ❤️ by <strong>Muhaiman Ikram</strong> — SmartReader &copy; 2026</footer>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══ EmailJS credentials ══
+const EMAILJS_SERVICE_ID  = 'service_w32zpcp';
+const EMAILJS_TEMPLATE_ID = 'template_xm3gm9o';
+const EMAILJS_PUBLIC_KEY  = '_YaU1eFzu5ogUUsgm';
+(function(){ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); })();
+
+// ══ PARTICLES ══
+(function(){
+  const container = document.getElementById('particles');
+  for(let i = 0; i < 30; i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random()*100 + '%';
+    p.style.width = p.style.height = (Math.random()*3+1) + 'px';
+    p.style.animationDuration = (Math.random()*8+6) + 's';
+    p.style.animationDelay = (Math.random()*6) + 's';
+    p.style.opacity = Math.random()*0.6;
+    container.appendChild(p);
+  }
+})();
+
+// ══ DISMISS SPLASH ══
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const splash = document.getElementById('intro-splash');
+    splash.classList.add('hidden');
+    setTimeout(()=>{ splash.style.display='none'; }, 900);
+  }, 3200);
+});
+
+// ══ NAVIGATION ══
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const link = document.querySelector(`.nav-link[onclick*="'${name}'"]`);
+  if (link) link.classList.add('active');
+  window.scrollTo(0, 0);
+  if (name === 'app' && !selectedLang) document.getElementById('lang-modal').classList.add('show');
+}
+
+// ══ SMARTREADER LOGIC ══
+let selectedLang = null, selectedLangName = '', mode = 'word', currentText = '';
+const langMap = {ur:'ur-PK',ar:'ar-SA',hi:'hi-IN',fr:'fr-FR',de:'de-DE',es:'es-ES',tr:'tr-TR',zh:'zh-CN',ru:'ru-RU'};
+
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedLang = btn.dataset.code; selectedLangName = btn.dataset.name;
+    const c = document.getElementById('lang-confirm');
+    c.textContent = `Continue with ${selectedLangName} →`; c.classList.add('active');
+  });
+});
+document.getElementById('lang-confirm').addEventListener('click', () => {
+  if (!selectedLang) { showToast('👆 Please select a language first!'); return; }
+  document.getElementById('lang-modal').classList.remove('show');
+  document.getElementById('current-lang-label').textContent = selectedLangName;
+});
+document.getElementById('change-lang-btn').addEventListener('click', () => document.getElementById('lang-modal').classList.add('show'));
+
+document.querySelectorAll('.panel-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-result').style.display = tab.dataset.tab === 'result' ? 'block' : 'none';
+    document.getElementById('tab-how').style.display    = tab.dataset.tab === 'how'    ? 'block' : 'none';
+  });
+});
+
+document.getElementById('mode-word').addEventListener('click', () => {
+  mode='word';
+  document.getElementById('mode-word').classList.add('active');
+  document.getElementById('mode-sentence').classList.remove('active');
+  document.getElementById('mode-label').textContent = 'Tap a word to look it up';
+  if(currentText) renderDocument(currentText);
+});
+document.getElementById('mode-sentence').addEventListener('click', () => {
+  mode='sentence';
+  document.getElementById('mode-sentence').classList.add('active');
+  document.getElementById('mode-word').classList.remove('active');
+  document.getElementById('mode-label').textContent = 'Tap a sentence to explain it';
+  if(currentText) renderDocument(currentText);
+});
+document.getElementById('clear-btn').addEventListener('click', () => {
+  currentText='';
+  document.getElementById('doc-container').innerHTML=`<div class="placeholder"><div class="big">📂</div><p>Upload a document or paste text.</p></div>`;
+  document.getElementById('tab-result').innerHTML=`<div class="empty-state"><div class="emoji">👆</div><p>Tap any word to see its meaning.</p></div>`;
+});
+document.getElementById('paste-btn').addEventListener('click', async () => {
+  try {
+    const t = await navigator.clipboard.readText();
+    if(t.trim()){ currentText=t; renderDocument(t); showToast('Pasted!'); } else doPrompt();
+  } catch { doPrompt(); }
+});
+function doPrompt(){ const t=prompt('Paste or type text:'); if(t&&t.trim()){ currentText=t; renderDocument(t); } }
+
+const uploadZone=document.getElementById('upload-zone'), fileInput=document.getElementById('file-input');
+uploadZone.addEventListener('click',()=>fileInput.click());
+uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.classList.add('dragover');});
+uploadZone.addEventListener('dragleave',()=>uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.classList.remove('dragover');if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',()=>{if(fileInput.files[0])handleFile(fileInput.files[0]);});
+
+async function handleFile(file){
+  const ext=file.name.split('.').pop().toLowerCase(); showToast('Loading…');
+  try{
+    if(ext==='txt'){ currentText=await file.text(); renderDocument(currentText); }
+    else if(ext==='pdf'){ await loadPDF(file); }
+    else if(ext==='docx'||ext==='doc'){ currentText=(await file.text()).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); renderDocument(currentText); }
+    else showToast('Use PDF, TXT, or DOCX');
+  } catch { showToast('Error reading file.'); }
+}
+async function loadPDF(file){
+  const lib=window['pdfjs-dist/build/pdf'];
+  lib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf=await lib.getDocument({data:await file.arrayBuffer()}).promise;
+  let txt='';
+  for(let i=1;i<=pdf.numPages;i++){ const p=await pdf.getPage(i); const c=await p.getTextContent(); txt+=c.items.map(x=>x.str).join(' ')+'\n\n'; }
+  currentText=txt; renderDocument(txt); showToast(`PDF loaded — ${pdf.numPages} page(s)`);
+}
+function renderDocument(text){
+  const c=document.getElementById('doc-container'); if(!text.trim())return;
+  if(mode==='word'){
+    c.innerHTML=text.split('\n').map(line=>{
+      if(!line.trim())return'<br/>';
+      return`<p style="margin-bottom:6px">${line.replace(/(\S+)/g,w=>{const cl=w.replace(/[^a-zA-Z'-]/g,'');return cl?`<span class="doc-word" data-word="${cl}">${w}</span>`:w;})}</p>`;
+    }).join('');
+    c.querySelectorAll('.doc-word').forEach(el=>el.addEventListener('click',()=>lookupWord(el.dataset.word,el)));
+  } else {
+    const sents=text.match(/[^.!?]+[.!?]+/g)||[text];
+    c.innerHTML=`<p style="line-height:1.9">${sents.map((s,i)=>`<span class="doc-sentence" data-idx="${i}">${s}</span>`).join(' ')}</p>`;
+    c.querySelectorAll('.doc-sentence').forEach(el=>el.addEventListener('click',()=>lookupSentence(el.textContent.trim(),el)));
+  }
+}
+async function lookupWord(word,el){
+  if(!word||word.length<2)return; highlightEl(el); showLoading(); switchToResult();
+  try{
+    const dr=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.toLowerCase()}`);
+    let pos='word',meaning='No definition found',example='';
+    if(dr.ok){ const d=await dr.json(); pos=d[0].meanings[0].partOfSpeech; meaning=d[0].meanings[0].definitions[0].definition; example=d[0].meanings[0].definitions[0].example||''; }
+    const tr=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|${langMap[selectedLang]||'ur-PK'}`);
+    const trd=await tr.json();
+    showWordResult({word,pos,meaning,translation:trd.responseData.translatedText,example});
+  } catch { showError('Could not fetch. Check your connection.'); }
+}
+async function lookupSentence(sentence,el){
+  if(!sentence||sentence.length<5)return; highlightEl(el); showLoading(); switchToResult();
+  try{
+    const tr=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(sentence)}&langpair=en|${langMap[selectedLang]||'ur-PK'}`);
+    const trd=await tr.json();
+    const s=sentence.toLowerCase();
+    let grammar='Statement';
+    if(s.includes(' is ')||s.includes(' are '))grammar='Present Tense';
+    if(s.includes(' was ')||s.includes(' were '))grammar='Past Tense';
+    if(s.includes(' will ')||s.includes(' shall '))grammar='Future Tense';
+    if(sentence.endsWith('?'))grammar='Question';
+    if(sentence.toLowerCase().startsWith('please')||sentence.endsWith('!'))grammar='Exclamatory / Command';
+    showSentenceResult({sentence:sentence.substring(0,80),meaning:'A complete English sentence. Tap individual words for detailed meanings.',grammar,translation:trd.responseData.translatedText});
+  } catch { showError('Could not analyze sentence.'); }
+}
+const isRTL=()=>['ur','ar','he','fa'].includes(selectedLang);
+function showWordResult(d){
+  document.getElementById('tab-result').innerHTML=`<div class="result-card">
+    <div class="selected-text-box">${d.word}</div>
+    <div class="info-row"><span class="info-label">Part of Speech</span><span class="info-value pos-badge">${d.pos}</span></div>
+    <div class="info-row"><span class="info-label">Meaning</span><span class="info-value">${d.meaning}</span></div>
+    <div class="info-row"><span class="info-label">${selectedLangName}</span><span class="info-value ${isRTL()?'rtl-text':''}">${d.translation}</span></div>
+    ${d.example?`<div class="info-row"><span class="info-label">Example</span><span class="info-value" style="color:var(--muted);font-style:italic">${d.example}</span></div>`:''}
+  </div>`;
+}
+function showSentenceResult(d){
+  document.getElementById('tab-result').innerHTML=`<div class="result-card">
+    <div class="selected-text-box" style="font-family:'Outfit',sans-serif;font-size:.85rem">${d.sentence}…</div>
+    <div class="info-row"><span class="info-label">Meaning</span><span class="info-value">${d.meaning}</span></div>
+    <div class="info-row"><span class="info-label">Grammar</span><span class="info-value pos-badge">${d.grammar}</span></div>
+    <div class="info-row"><span class="info-label">${selectedLangName}</span><span class="info-value ${isRTL()?'rtl-text':''}">${d.translation}</span></div>
+  </div>`;
+}
+function showLoading(){ document.getElementById('tab-result').innerHTML=`<div class="loading-dots"><span></span><span></span><span></span></div><p style="text-align:center;color:var(--muted);font-size:.85rem;margin-top:4px">Looking up…</p>`; }
+function showError(msg){ document.getElementById('tab-result').innerHTML=`<div class="empty-state"><div class="emoji">⚠️</div><p>${msg}</p></div>`; }
+function highlightEl(el){ document.querySelectorAll('.doc-word.highlighted,.doc-sentence.highlighted').forEach(e=>e.classList.remove('highlighted')); el.classList.add('highlighted'); }
+function switchToResult(){ document.querySelectorAll('.panel-tab').forEach(t=>t.classList.remove('active')); document.querySelector('[data-tab="result"]').classList.add('active'); document.getElementById('tab-result').style.display='block'; document.getElementById('tab-how').style.display='none'; }
+
+// ══ CONTACT FORM ══
+async function submitContact() {
+  const name    = document.getElementById('cf-name').value.trim();
+  const email   = document.getElementById('cf-email').value.trim();
+  const subject = document.getElementById('cf-subject').value;
+  const message = document.getElementById('cf-message').value.trim();
+  const msgEl   = document.getElementById('form-msg');
+  const btn     = document.getElementById('form-submit-btn');
+  msgEl.className = 'form-msg'; msgEl.style.display = 'none';
+  if (!name || !email || !subject || !message) { showToast('⚠️ Please fill in all fields'); return; }
+  if (!email.includes('@')) { showToast('⚠️ Please enter a valid email'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Sending…';
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      from_name: name, from_email: email, subject, message,
+      to_email: 'muhaimanikram@gmail.com', reply_to: email
+    });
+    msgEl.className = 'form-msg success';
+    msgEl.textContent = '✅ Message sent! Muhaiman will reply within 24 hours.';
+    msgEl.style.display = 'block';
+    ['cf-name','cf-email','cf-subject','cf-message'].forEach(id=>document.getElementById(id).value='');
+    showToast('✅ Email sent successfully!');
+  } catch(err) {
+    msgEl.className = 'form-msg error';
+    msgEl.textContent = '❌ Failed to send. Please email directly: muhaimanikram@gmail.com';
+    msgEl.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = '📨 Send Message';
+}
+
+// ══ TOAST ══
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+showPage('home');
+</script>
+</body>
+</html>
